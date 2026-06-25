@@ -1,29 +1,41 @@
 (() => {
     const navLinks = Array.from(document.querySelectorAll('.main-nav a[href^="#"]'));
-    const sections = navLinks
-        .map((link) => document.querySelector(link.getAttribute('href')))
-        .filter(Boolean);
+    const sections = navLinks.map((link) => {
+        const id = link.getAttribute('href');
+        const section = id ? document.querySelector(id) : null;
 
-    if ('IntersectionObserver' in window && navLinks.length > 0 && sections.length > 0) {
-        const observer = new IntersectionObserver((entries) => {
-            const visible = entries
-                .filter((entry) => entry.isIntersecting)
-                .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        return section ? { id, link, section } : null;
+    }).filter(Boolean);
 
-            if (!visible) {
-                return;
+    let navTicking = false;
+
+    const updateActiveNav = () => {
+        const headerHeight = document.querySelector('[data-header]')?.offsetHeight || 0;
+        const activationLine = headerHeight + Math.min(window.innerHeight * 0.28, 220);
+        let active = null;
+
+        sections.forEach((item) => {
+            if (item.section.getBoundingClientRect().top <= activationLine) {
+                active = item;
             }
-
-            navLinks.forEach((link) => {
-                link.classList.toggle('is-active', link.getAttribute('href') === `#${visible.target.id}`);
-            });
-        }, {
-            rootMargin: '-25% 0px -60% 0px',
-            threshold: [0.15, 0.35, 0.6],
         });
 
-        sections.forEach((section) => observer.observe(section));
-    }
+        navLinks.forEach((link) => {
+            link.classList.toggle('is-active', active?.link === link);
+        });
+    };
+
+    const scheduleActiveNav = () => {
+        if (navTicking) {
+            return;
+        }
+
+        navTicking = true;
+        window.requestAnimationFrame(() => {
+            updateActiveNav();
+            navTicking = false;
+        });
+    };
 
     document.querySelectorAll('a[href^="#"]').forEach((link) => {
         link.addEventListener('click', (event) => {
@@ -37,6 +49,7 @@
             event.preventDefault();
             target.scrollIntoView({ behavior: 'smooth', block: 'start' });
             history.pushState(null, '', id);
+            scheduleActiveNav();
         });
     });
 
@@ -45,5 +58,8 @@
     };
 
     updateStickyCall();
+    updateActiveNav();
+    window.addEventListener('scroll', scheduleActiveNav, { passive: true });
+    window.addEventListener('resize', scheduleActiveNav);
     window.addEventListener('scroll', updateStickyCall, { passive: true });
 })();
